@@ -1,0 +1,241 @@
+---
+title: "data manipulation hands-on"
+author: "Devin Pastoor"
+date: "Sept 26, 2016"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r libraries}
+library(PKPDmisc)
+library(readr)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+```
+
+```{r}
+opts_chunk$set(echo = FALSE, warnings = F, message = F, fig.width = 8, fig.height = 6)
+```
+
+## DATA IMPORT
+
+
+Objectives:
+
+* Import datasets and documents
+* Perform basic data manipulation upon importing the data.
+
+### Task-I
+
+Use the .csv files `demog`, `IV`, and `Oral` provided into the data object folder. 
+
+1. Read in all three csv files  
+
+```{r}
+iv_raw <- read_csv("../data/IV.csv")
+oral_raw <- read_csv("../data/ORAL.csv")
+demog_raw <- read_csv("../data/demog.csv")
+```
+```{r}
+iv_raw %>% head %>% kable
+oral_raw %>% head %>% kable
+demog_raw %>% head %>% kable
+```
+
+
+
+
+## DATA MANIPULATION
+The goals of this section:
+
+* Use data manipulation tools to prepare the dataset for analysis
+
+### Task-II
+
+1. Add a Formulation column and label IV/Oral for each dataset
+
+```{r}
+iv <- iv_raw %>% mutate(FORM = "IV")
+oral <- oral_raw %>% mutate(FORM = "ORAL")
+```
+
+
+2. Create one integrated dataset with both IV and Oral data.
+
+3.  Rename "DV" column as "COBS"
+
+```{r}
+pkdat <- bind_rows(iv, oral) %>% rename(COBS = DV)
+```
+
+4. Appropriately merge the demographics dataset into the IV and Oral dataset
+
+Individuals only found in PK:
+
+```{r}
+anti_join(pkdat, demog_raw) %>% kable()
+```
+
+Individuals found only in demographics:
+
+```{r}
+anti_join(demog_raw, pkdat) %>% kable()
+```
+
+Given missing PK information, we will only retain individuals that also have PK data
+
+```{r}
+pkdemog <- left_join(pkdat, demog_raw)
+```
+```{r}
+pkdemog %>% head %>% kable
+```
+
+5. Perform the following tasks:
+
+    a. Ensure that the following columns are numeric and not text: TIME, COBS, WT, AGE, AMT and DOSEs
+    b. Change the following:
+    c. fix COBS to be numeric
+    d. Filter the dataset such that you remove all rows that were non-numeric
+    e. Create a new column called "GENDER" where:
+        i. Female = 0
+        ii. Male = 1 
+    f. Create a new column called RACEN where:
+        i. Caucasian = 0
+        ii. Asian = 1
+        iii. Black = 2
+        iv. Hispanic = 3
+        
+```{r}
+str(pkdemog)
+```
+
+```{r}
+pkdemog <- pkdemog %>% 
+  mutate(
+    NNFLG = ifelse(is.na(COBS), 0, 
+                   ifelse(!is.na(as.numeric(COBS)), 0, 1))
+  )
+
+pkdemog %>% filter(NNFLG == 1) %>% kable()
+```
+```{r}
+pkdemog_cleaned <- pkdemog %>% 
+  filter(NNFLG == 0) %>%
+  mutate(COBS = as_numeric(COBS))
+```
+
+
+6. Save the above modifications as a new csv file, dropping the columns SEX and RACE
+
+```{r eval = F}
+write_nonmem(pkdemog_cleaned, "../data/pkdemog_cleaned.csv")
+```
+
+## Descriptive Statistics
+
+Objectives
+
+* How to make summaries of the data using descriptive statistics and other data manipulation tools (dplyr, base R functions etc)
+
+### Task III
+
+
+1. Summarize counts stratified by gender and race
+
+```{r}
+count(pkdemog_cleaned %>% 
+        distinct(ID, .keep_all = T), 
+      SEX, RACE) %>% kable()
+```
+
+2. Add a column with the count the number of males/females in the dataset 
+
+```{r}
+gender_counts <- pkdemog_cleaned %>% 
+  distinct(ID, .keep_all=TRUE) %>%
+  group_by(SEX) %>%
+  summarize(CNTGEN = n())
+
+gender_counts %>% kable()
+```
+
+
+```{r}
+pkdemog_cleaned %>% left_join(gender_counts) %>% 
+  distinct(ID, .keep_all = T) %>% 
+  head %>% kable()
+```
+
+
+
+4. summarize the min, mean, and max values for WT, AGE:
+
+    a. non-stratified (WT only)
+    b. by Gender
+
+```{r}
+pkdemog_cleaned %>% 
+  summarize(minWT = min(WT), 
+            meanWT = mean(WT),
+            maxWT = max(WT)) %>% kable()
+```
+
+```{r}
+pkdemog_cleaned %>% 
+  group_by(SEX) %>%
+  summarize_at(vars(AGE, WT), funs(min, mean, max)) %>% kable()
+```
+
+5. Calculate the Median, 5th, and 95th percentile concentration at each time point for each formulation and dose level. hint: you can use `?quantile` to calculate various quantiles
+
+```{r}
+quantile_summaries <- pkdemog_cleaned %>% filter(!is.na(COBS)) %>%
+  group_by(FORM, DOSE, TIME) %>%
+  summarize(q05 = quantile(COBS, 0.05),
+            q50 = quantile(COBS, 0.5),
+            q95 = quantile(COBS, 0.95))
+
+quantile_summaries %>% kable()
+```
+
+
+## BONUS: visualize the concentration time data with the quantiles underlaid
+
+```{r}
+gg_form_dose <- pkdemog_cleaned %>%
+  filter(!is.na(COBS)) %>%
+  ggplot(aes(x = TIME, y = COBS, group = interaction(ID, FORM))) +
+  geom_ribbon(data = quantile_summaries, 
+              aes(ymin = q05, 
+                  ymax = q95, 
+                  ## since don't have a y and group in this dataset but ggplot
+                  ## will look since they are set in the base layer, need to set
+                  ## them to null
+                  y = NULL, 
+                  group = NULL), 
+              alpha = 0.9, fill = "blue") + 
+  geom_line() +
+  geom_point() 
+
+```
+
+```{r}
+gg_form_dose +
+  facet_wrap(FORM~DOSE)
+```
+
+```{r}
+gg_form_dose +
+  facet_wrap(FORM~DOSE, scales = "free") +
+  theme_bw() +
+  base_theme() +
+  labs(
+    x = "Time, hrs",
+    y = "Concentration, mg/L"
+  )
+```
+
