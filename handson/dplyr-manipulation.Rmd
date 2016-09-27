@@ -1,0 +1,109 @@
+---
+title: "data manipulation hands-on"
+author: "<add your name here>"
+date: "<add date here>"
+output: word_document
+---
+
+```{r libraries}
+library(PKPDmisc)
+library(readr)
+library(dplyr)
+library(knitr)
+```
+
+## DATA IMPORT
+
+
+```{r}
+
+```
+
+
+Objectives:
+
+* Import datasets and documents
+* Perform basic data manipulation upon importing the data.
+
+### Task-I
+
+Use the .csv files `demog`, `IV`, and `Oral` provided into the data object folder. 
+
+1. Read in all three csv files  
+
+
+
+## DATA MANIPULATION
+The goals of this section:
+
+* Use data manipulation tools to prepare the dataset for analysis
+
+### Task-II
+1.  Rename "DV" column as "COBS"
+
+```{r}
+
+```
+
+
+2. Add a Formulation column and label IV/Oral for each dataset
+
+3. Create one integrated dataset with both IV and Oral data.
+
+4. Appropriately merge the demographics dataset into the IV and Oral dataset
+
+5. Perform the following tasks:
+    a. Ensure that the following columns are numeric and not text: TIME, COBS, WT, AGE, AMT and DOSEs
+    b. Change the following:
+    d. Filter the dataset such that you remove all rows that were non-numeric
+    e. Create a new column called "GENDER" where:
+        i. Female = 0
+        ii. Male = 1 
+    f. Create a new column called RACEN where:
+        i. Caucasian = 0
+        ii. Asian = 1
+        iii. Black = 2
+        iv. Hispanic = 3
+    g. Remove the following columns
+        i. SEX
+        ii. RACE
+6. Save the above modifications as a new csv file
+
+## Descriptive Statistics
+
+Objectives
+
+* How to make summaries of the data using descriptive statistics and other data manipulation tools (dplyr, base R functions etc)
+
+### Task III
+
+
+1. Add a column with the count the number of males/females in the dataset 
+
+```{r}
+
+```
+
+
+2. Summarize counts stratified by gender and race
+
+```{r}
+
+```
+
+4. summarize the min, mean, and max values for WT, AGE:
+
+    a. non-stratified
+
+    b. by Gender
+
+5. What is the Average numbers samples (observations) per individual in this dataset. Hint: make sure you are *only* counting samples, not necessarily all rows are observations!
+
+
+6. Calculate the Mean, 5th, and 95th percentile concentration at each time point for each formulation and dose level. hint: you can use `?quantile` to calculate various quantiles
+
+```{r}
+
+```
+
+
